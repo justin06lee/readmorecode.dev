@@ -1,0 +1,51 @@
+{
+  "name": "web-client",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "db:migrate": "bun scripts/migrate.ts",
+    "db:seed": "bun scripts/seed.ts",
+    "db:filter": "bun scripts/filter-markdown.ts",
+    "db:repair": "bun scripts/repair-puzzles.ts",
+    "db:regenerate": "bun scripts/regenerate-puzzles.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "@monaco-editor/react": "^4.7.0",
+    "@tursodatabase/database": "^0.4.4",
+    "dotenv": "^17.3.1",
+    "drizzle-orm": "1.0.0-beta.15-859cf75",
+    "groq-sdk": "^0.37.0",
+    "motion": "^12.34.3",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "1.0.0-beta.15-859cf75",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  },
+  "ignoreScripts": [
+    "sharp",
+    "unrs-resolver"
+  ],
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ]
+}
