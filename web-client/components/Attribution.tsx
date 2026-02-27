@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Puzzle } from "@/lib/types";
 
 interface AttributionProps {
@@ -14,23 +13,23 @@ export function Attribution({ puzzle, className = "" }: AttributionProps) {
   return (
     <div className={`rounded-lg border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-400 ${className}`.trim()}>
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Link
+        <a
           href={repoUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="font-medium text-zinc-900 underline hover:no-underline dark:text-zinc-100"
         >
           {repo.owner}/{repo.name}
-        </Link>
+        </a>
         <span aria-hidden>·</span>
-        <Link
+        <a
           href={fileUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="underline hover:no-underline"
         >
           {file.path}
-        </Link>
+        </a>
         <span aria-hidden>·</span>
         <span>{commit.branch}</span>
         {commit.sha !== commit.branch && (
@@ -42,14 +41,14 @@ export function Attribution({ puzzle, className = "" }: AttributionProps) {
       </p>
       {repo.licenseUrl && (
         <p className="mt-1">
-          <Link
+          <a
             href={repo.licenseUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs underline hover:no-underline"
           >
             License
-          </Link>
+          </a>
         </p>
       )}
     </div>

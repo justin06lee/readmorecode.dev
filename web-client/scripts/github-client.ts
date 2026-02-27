@@ -48,7 +48,8 @@ export async function fetchFileContent(
     };
   }
 
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`;
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}?ref=${encodeURIComponent(ref)}`;
   const res = await fetch(url, {
     headers: ghHeaders({ Accept: "application/vnd.github.raw" }),
   });

@@ -24,3 +24,37 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Monaco editor decoration highlights — muted, transparent */
+.monaco-highlight-red {
+  background: rgba(239, 68, 68, 0.10) !important;
+}
+.monaco-highlight-red-glyph {
+  background: rgba(239, 68, 68, 0.35) !important;
+  width: 3px !important;
+  margin-left: 3px;
+}
+.monaco-highlight-green {
+  background: rgba(34, 197, 94, 0.10) !important;
+}
+.monaco-highlight-green-glyph {
+  background: rgba(34, 197, 94, 0.35) !important;
+  width: 3px !important;
+  margin-left: 3px;
+}
+.monaco-highlight-selected {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+html.light .monaco-highlight-selected {
+  background: rgba(0, 0, 0, 0.06) !important;
+}
+.monaco-highlight-selected-glyph {
+  background: rgba(255, 255, 255, 0.35) !important;
+  width: 3px !important;
+  margin-left: 3px;
+}
+html.light .monaco-highlight-selected-glyph {
+  background: rgba(0, 0, 0, 0.15) !important;
+  width: 3px !important;
+  margin-left: 3px;
+}

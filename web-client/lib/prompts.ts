@@ -49,10 +49,12 @@ Required keys (use these exact names or camelCase equivalents):
 - given: object (concrete inputs for deterministic grading)
 - choices: array of strings (only if multiple-choice, else [])
 - answer: string (exact, gradeable)
-- explanation: string (short but precise, references specific lines/logic)
+- explanation: string (short but precise, references specific lines/logic; may use \\n for paragraphs)
 - common_mistakes: array of strings (2-4 items)
-- startLine: number (1-based, first line of the code span that contains the answer)
-- endLine: number (1-based, last line of that span)
+- startLine: number (1-based, first line of the code span most relevant to the answer; MUST be >= 1 and <= the total line count of the snippet)
+- endLine: number (1-based, last line of that span; MUST be >= startLine and <= the total line count)
+
+startLine and endLine are REQUIRED and must always be valid line numbers within the snippet. Pick the smallest span that a reader must examine to verify the answer.
 
 Example shape (your output must be valid JSON like this):
 {"task_type":"TRACE","question":"What is returned when...","given":{},"choices":[],"answer":"42","explanation":"Line 3 computes...","common_mistakes":["..."],"startLine":1,"endLine":5}`;

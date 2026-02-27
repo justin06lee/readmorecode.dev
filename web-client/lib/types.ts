@@ -34,7 +34,7 @@ export interface AnswerKey {
   common_mistakes?: string[];
 }
 
-export type PuzzleCategory = "web" | "systems" | "mobile" | "config" | "data" | "other";
+export type PuzzleCategory = "web" | "systems" | "mobile" | "data" | "other";
 
 export interface Puzzle {
   puzzleId: string;

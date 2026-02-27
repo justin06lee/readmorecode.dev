@@ -24,7 +24,7 @@ function sleep(ms: number): Promise<void> {
 
 function getApiKeys(): string[] {
   const keys: string[] = [];
-  for (let i = 1; i <= 7; i++) {
+  for (let i = 1; i <= 8; i++) {
     const key = process.env[i === 1 ? "GROQ_API_KEY" : `GROQ_API_KEY${i}`];
     if (key) keys.push(key);
   }
@@ -141,20 +141,28 @@ async function main() {
     const userPrompt = buildGenerationUserPrompt(snippet, context);
 
     try {
-      const completion = await getGroqChatCompletion(
-        [
-          { role: "system", content: GENERATION_SYSTEM },
-          { role: "user", content: userPrompt },
-        ],
-        { model, apiKey }
-      );
-      const raw = completion.choices[0]?.message?.content?.trim() ?? "";
-      const obj = extractJsonObject(raw);
-      const parsed = obj ? parsedToGenerated(obj) : null;
+      const MAX_LLM_RETRIES = 3;
+      let parsed: GeneratedJson | null = null;
+      for (let llmTry = 0; llmTry < MAX_LLM_RETRIES; llmTry++) {
+        const completion = await getGroqChatCompletion(
+          [
+            { role: "system", content: GENERATION_SYSTEM },
+            { role: "user", content: userPrompt },
+          ],
+          { model, apiKey, jsonMode: true }
+        );
+        const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+        const obj = extractJsonObject(raw);
+        parsed = obj ? parsedToGenerated(obj) : null;
+        if (parsed) break;
+        if (llmTry < MAX_LLM_RETRIES - 1) {
+          console.log(`  Invalid JSON (attempt ${llmTry + 1}/${MAX_LLM_RETRIES}), retrying...`);
+        }
+      }
 
       if (!parsed) {
         skipped++;
-        console.log(`  Skipped (invalid JSON).`);
+        console.log(`  Skipped (invalid JSON after ${MAX_LLM_RETRIES} attempts).`);
         if ((i + 1) % 50 === 0) {
           console.log(`  Progress: ${i + 1}/${puzzles.length} — Updated: ${updated}, Skipped: ${skipped}, Errors: ${errors}`);
         }

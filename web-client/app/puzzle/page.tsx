@@ -2,7 +2,9 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
+import { CATEGORIES, LANGUAGES_BY_CATEGORY } from "@/lib/categories";
+import type { PuzzleCategory } from "@/lib/types";
 
 function HomeIcon() {
   return (
@@ -12,8 +14,8 @@ function HomeIcon() {
     </svg>
   );
 }
+
 import { CodePuzzleView } from "@/components/CodePuzzleView";
-import { GradeResult } from "@/components/GradeResult";
 import { ReportModal } from "@/components/ReportModal";
 import type { Puzzle, GradeResult as GradeResultType, SelectedRange } from "@/lib/types";
 
@@ -27,8 +29,22 @@ export default function PuzzlePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [gradeResult, setGradeResult] = useState<GradeResultType | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [reportCount, setReportCount] = useState(0);
 
-  const fetchPuzzle = useCallback(async () => {
+  const [filterCategory, setFilterCategory] = useState<PuzzleCategory | "">(() => {
+    if (typeof window === "undefined") return "";
+    return (localStorage.getItem("puzzle_filter_category") as PuzzleCategory | "") || "";
+  });
+  const [filterLanguage, setFilterLanguage] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("puzzle_filter_language") || "";
+  });
+
+  const availableLanguages = filterCategory
+    ? LANGUAGES_BY_CATEGORY[filterCategory] ?? []
+    : Object.values(LANGUAGES_BY_CATEGORY).flat();
+
+  const fetchPuzzle = useCallback(async (category?: string, language?: string) => {
     setLoading(true);
     setError(null);
     setGradeResult(null);
@@ -36,15 +52,20 @@ export default function PuzzlePage() {
     setSelectedRanges([]);
     setOptionalExplanation("");
     try {
-      const res = await fetch("/api/puzzle");
+      const params = new URLSearchParams();
+      if (category) params.set("category", category);
+      if (language) params.set("language", language);
+      const qs = params.toString();
+      const res = await fetch(`/api/puzzle${qs ? `?${qs}` : ""}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.error ?? "Failed to load puzzle");
         setPuzzle(null);
         return;
       }
-      const data = (await res.json()) as Puzzle;
-      setPuzzle(data);
+      const data = await res.json();
+      setReportCount(data.reportCount ?? 0);
+      setPuzzle(data as Puzzle);
     } catch {
       setError("Failed to load puzzle");
       setPuzzle(null);
@@ -53,17 +74,30 @@ export default function PuzzlePage() {
     }
   }, []);
 
-  // Initial load and when "Next puzzle" is clicked
   const loadPuzzle = useCallback(() => {
     setGradeResult(null);
-    fetchPuzzle();
-  }, [fetchPuzzle]);
+    fetchPuzzle(filterCategory || undefined, filterLanguage || undefined);
+  }, [fetchPuzzle, filterCategory, filterLanguage]);
 
   useEffect(() => {
     if (puzzle === null && error === null) {
-      fetchPuzzle();
+      fetchPuzzle(filterCategory || undefined, filterLanguage || undefined);
     }
   }, []);
+
+  const handleCategoryChange = (cat: PuzzleCategory | "") => {
+    setFilterCategory(cat);
+    localStorage.setItem("puzzle_filter_category", cat);
+    if (cat && filterLanguage && !(LANGUAGES_BY_CATEGORY[cat] ?? []).includes(filterLanguage)) {
+      setFilterLanguage("");
+      localStorage.setItem("puzzle_filter_language", "");
+    }
+  };
+
+  const handleLanguageChange = (lang: string) => {
+    setFilterLanguage(lang);
+    localStorage.setItem("puzzle_filter_language", lang);
+  };
 
   const handleSubmit = async () => {
     if (!puzzle) return;
@@ -136,7 +170,7 @@ export default function PuzzlePage() {
         <p className="text-red-600 dark:text-red-400">{error}</p>
         <button
           type="button"
-          onClick={fetchPuzzle}
+          onClick={() => fetchPuzzle()}
           className="rounded-xl bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
         >
           Try again
@@ -148,25 +182,13 @@ export default function PuzzlePage() {
     );
   }
 
-  if (gradeResult) {
-    return (
-      <div className="min-h-screen px-4 py-8">
-        <div className="mx-auto max-w-2xl">
-          <AnimatePresence mode="wait">
-            <GradeResult key="result" result={gradeResult} onNext={loadPuzzle} />
-          </AnimatePresence>
-        </div>
-      </div>
-    );
-  }
-
   if (!puzzle) {
     return null;
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col px-4 py-4 sm:px-6 sm:py-6">
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4">
+    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-4 sm:px-6 sm:py-6">
+      <div className="mx-auto -mt-40 flex w-full max-w-[1600px] flex-col gap-4">
         <div className="flex items-center justify-between gap-4">
           <Link
             href="/"
@@ -176,19 +198,31 @@ export default function PuzzlePage() {
             <HomeIcon />
             Home
           </Link>
-          <button
-            type="button"
-            onClick={() => setReportOpen(true)}
-            className="text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300"
-          >
-            Report problem
-          </button>
+          <div className="flex items-center gap-3">
+            {reportCount > 0 && (
+              <span className="flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                  <path d="M12 9v4" /><path d="M12 17h.01" />
+                </svg>
+                {reportCount} report{reportCount !== 1 ? "s" : ""}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setReportOpen(true)}
+              className="text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300"
+            >
+              Report
+            </button>
+          </div>
         </div>
+
         <ReportModal
           puzzleId={puzzle.puzzleId}
           open={reportOpen}
           onClose={() => setReportOpen(false)}
-          onSubmitted={() => {}}
+          onSubmitted={() => setReportCount((c) => c + 1)}
         />
         {error && (
           <motion.p
@@ -216,6 +250,16 @@ export default function PuzzlePage() {
             onSubmit={handleSubmit}
             onInsufficientContext={handleInsufficientContext}
             isSubmitting={isSubmitting}
+            gradeResult={gradeResult}
+            onNextPuzzle={loadPuzzle}
+            filterCategory={filterCategory}
+            filterLanguage={filterLanguage}
+            onFilterCategoryChange={handleCategoryChange}
+            onFilterLanguageChange={handleLanguageChange}
+            availableLanguages={availableLanguages}
+            onApplyFilters={loadPuzzle}
+            onClearFilters={() => { setFilterCategory(""); setFilterLanguage(""); localStorage.setItem("puzzle_filter_category", ""); localStorage.setItem("puzzle_filter_language", ""); }}
+            categories={CATEGORIES}
           />
         </motion.div>
       </div>

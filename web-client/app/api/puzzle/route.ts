@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generatePuzzle, setCachedPuzzle } from "@/lib/puzzle-generator";
-import { getPuzzleCount, getRandomPuzzle, insertPuzzle } from "@/lib/db/puzzles";
+import { getPuzzleCount, getRandomPuzzle, getReportCount, insertPuzzle } from "@/lib/db/puzzles";
 import { stripComments } from "@/lib/strip-comments";
 import type { Puzzle } from "@/lib/types";
 
@@ -8,19 +8,23 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const seed = searchParams.get("seed") ?? undefined;
+    const language = searchParams.get("language") ?? undefined;
+    const category = searchParams.get("category") ?? undefined;
 
     try {
       const count = await getPuzzleCount();
       if (count > 0) {
-        const fromDb = await getRandomPuzzle();
+        const fromDb = await getRandomPuzzle({ language, category });
         if (fromDb) {
           setCachedPuzzle(fromDb);
-          const forClient: Puzzle = {
+          const reportCount = await getReportCount(fromDb.puzzleId);
+          const forClient = {
             ...fromDb,
             file: {
               ...fromDb.file,
               content: stripComments(fromDb.file.content, fromDb.file.language),
             },
+            reportCount,
           };
           return NextResponse.json(forClient);
         }

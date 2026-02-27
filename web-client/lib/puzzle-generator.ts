@@ -130,8 +130,12 @@ export async function generatePuzzle(
       continue;
     }
 
-    const treeForLang = tree.filter((f) => isPathForLanguage(f.path, targetLanguage));
-    const files = treeForLang.length > 0 ? treeForLang : tree;
+    const files = tree.filter((f) => isPathForLanguage(f.path, targetLanguage));
+    if (files.length === 0) {
+      lastError = `Attempt ${attempt + 1}: no ${targetLanguage} files in ${owner}/${name}.`;
+      if (process.env.NODE_ENV === "development") console.warn("[generatePuzzle]", lastError);
+      continue;
+    }
     const fileEntry = files[Math.floor(rng() * files.length)]!;
     const path = fileEntry.path;
 
@@ -162,7 +166,7 @@ export async function generatePuzzle(
           { role: "system", content: GENERATION_SYSTEM },
           { role: "user", content: userPrompt },
         ],
-        { model: options?.model, apiKey: options?.apiKey }
+        { model: options?.model, apiKey: options?.apiKey, jsonMode: true }
       );
       const raw = completion.choices[0]?.message?.content?.trim() ?? "";
       const obj = extractJsonObject(raw);

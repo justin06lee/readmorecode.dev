@@ -26,15 +26,6 @@ export default function Home() {
           >
             Reading code is the new skill.
           </motion.h1>
-          <motion.p
-            className="max-w-lg text-lg text-zinc-600 sm:text-xl dark:text-zinc-400"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
-          >
-            Practice with code comprehension puzzles. Find the exact lines, trace
-            the flow.
-          </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}

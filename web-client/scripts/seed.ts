@@ -3,12 +3,13 @@
  *
  * Flow per language:
  *  1. Fetch up to 1000 repos via GitHub Search API (pages 1–10, 100 per page). Store in memory.
- *  2. Generate puzzles by picking repos from that list — no more search API calls for this language.
- *  3. For each puzzle: pick repo → fetch tree → pick file → fetch content → call Groq → insert into DB.
+ *  2. Generate puzzles by round-robin through repos — each puzzle slot uses a different repo.
+ *  3. For each puzzle: pick next repo → fetch tree → pick file → fetch content → call Groq → insert into DB.
  *
- * Uses 7 Groq API keys and 5 models. On Groq 429, cycles to next key and next model, then retries (no puzzle count advance).
+ * Uses 8 Groq API keys and 4 models. On Groq 429, cycles model/key and retries the same repo.
+ * On success or generation failure, advances to the next repo for maximum diversity.
  * When all keys cycled, sleeps 1 day. On GitHub rate limit, sleeps 1 min then retries.
- * Files must have 20–200 lines (existing DB puzzles with >200 lines are not removed). Category/language set from file.
+ * Files must have 20–200 lines. Category/language set from file.
  *
  * Optional: START_FROM_REPO=owner/repo — use only repos starting from that one (inclusive) in the persisted list.
  */
@@ -29,7 +30,7 @@ function sleep(ms: number): Promise<void> {
 
 function getApiKeys(): string[] {
   const keys: string[] = [];
-  for (let i = 1; i <= 7; i++) {
+  for (let i = 1; i <= 8; i++) {
     const key = process.env[i === 1 ? "GROQ_API_KEY" : `GROQ_API_KEY${i}`];
     if (key) keys.push(key);
   }
@@ -133,20 +134,22 @@ async function main() {
 
     let consecutiveErrors = 0;
     let keysExhausted = 0;
+    let repoIndex = 0;
 
     while (count < TARGET_PER_LANGUAGE) {
       const apiKey = apiKeys[keyIndex];
       const model = models[modelIndex];
       const keyLabel = keyIndex + 1;
+      const currentRepo = repos[repoIndex % repos.length]!;
 
-      console.log(`\n[${language}] --- Puzzle ${count + 1}/${TARGET_PER_LANGUAGE} (key #${keyLabel}, model: ${model}) ---`);
+      console.log(`\n[${language}] --- Puzzle ${count + 1}/${TARGET_PER_LANGUAGE} (key #${keyLabel}, model: ${model}, repo: ${currentRepo.full_name}) ---`);
 
       try {
-        const puzzle = await generatePuzzle(`${language}:${count}`, {
+        const puzzle = await generatePuzzle(undefined, {
           language,
           apiKey,
           model,
-          repos,
+          repos: [currentRepo],
           onLog: (msg) => console.log(msg),
         });
 
@@ -160,12 +163,13 @@ async function main() {
             console.log(`[${language}] Progress: ${count}/${TARGET_PER_LANGUAGE}`);
           }
         } else {
-          console.log(`[${language}] No puzzle produced this round (all attempts failed).`);
+          console.log(`[${language}] No puzzle produced from ${currentRepo.full_name}, moving to next repo.`);
         }
+        repoIndex++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.startsWith("GITHUB_RATE_LIMIT")) {
-          console.warn(`[${language}] GitHub rate limit. Sleeping 1 minute...`);
+          console.warn(`[${language}] GitHub rate limit. Sleeping 1 minute... (will retry same repo)`);
           await sleep(ONE_MINUTE_MS);
           continue;
         }
@@ -176,7 +180,7 @@ async function main() {
           if (modelIndex === 0) {
             keyIndex = (keyIndex + 1) % apiKeys.length;
             console.warn(
-              `[${language}] Groq rate limit (429). All models tried for this key. Switching to key #${keyIndex + 1}, model ${newModel}. Will retry same puzzle slot.`
+              `[${language}] Groq rate limit (429). All models tried for this key. Switching to key #${keyIndex + 1}, model ${newModel}. Will retry same repo.`
             );
             if (keyIndex === 0) {
               keysExhausted++;
@@ -185,7 +189,7 @@ async function main() {
             }
           } else {
             console.warn(
-              `[${language}] Groq rate limit (429). Trying next model for same key: ${oldModel} → ${newModel}. Will retry same puzzle slot.`
+              `[${language}] Groq rate limit (429). Trying next model for same key: ${oldModel} → ${newModel}. Will retry same repo.`
             );
           }
           continue;
@@ -196,6 +200,7 @@ async function main() {
           console.warn(`[${language}] Too many consecutive errors. Moving to next language.`);
           break;
         }
+        repoIndex++;
       }
 
       await sleep(THROTTLE_MS);

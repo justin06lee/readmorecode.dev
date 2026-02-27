@@ -1,7 +1,7 @@
 import "server-only";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "./index";
-import { puzzlesTable } from "./schema";
+import { puzzlesTable, reportsTable } from "./schema";
 import type { Puzzle } from "@/lib/types";
 
 export async function insertPuzzle(puzzle: Puzzle): Promise<void> {
@@ -59,11 +59,26 @@ function rowToPuzzle(row: {
   };
 }
 
-export async function getRandomPuzzle(_filter?: { category?: string; language?: string }): Promise<Puzzle | null> {
-  const rows = await db.select().from(puzzlesTable).orderBy(sql`random()`).limit(1);
+export async function getRandomPuzzle(filter?: { category?: string; language?: string }): Promise<Puzzle | null> {
+  const conditions = [];
+  if (filter?.language) conditions.push(eq(puzzlesTable.language, filter.language));
+  if (filter?.category) conditions.push(eq(puzzlesTable.category, filter.category));
+
+  const query = conditions.length > 0
+    ? db.select().from(puzzlesTable).where(and(...conditions)).orderBy(sql`random()`).limit(1)
+    : db.select().from(puzzlesTable).orderBy(sql`random()`).limit(1);
+  const rows = await query;
   const row = rows[0];
   if (!row) return null;
   return rowToPuzzle(row);
+}
+
+export async function getReportCount(puzzleId: string): Promise<number> {
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(reportsTable)
+    .where(eq(reportsTable.puzzleId, puzzleId));
+  return Number(result[0]?.count ?? 0);
 }
 
 /** For filter script: get all puzzle ids and raw file JSON to check path. */

@@ -13,7 +13,7 @@ export const SEED_MODELS = [
 
 export async function getGroqChatCompletion(
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
-  options?: { model?: string; apiKey?: string }
+  options?: { model?: string; apiKey?: string; jsonMode?: boolean; temperature?: number }
 ) {
   const client = options?.apiKey
     ? new Groq({ apiKey: options.apiKey })
@@ -21,5 +21,7 @@ export async function getGroqChatCompletion(
   return client.chat.completions.create({
     messages,
     model: options?.model ?? SEED_MODELS[0],
+    temperature: options?.temperature ?? 0.7,
+    ...(options?.jsonMode ? { response_format: { type: "json_object" as const } } : {}),
   });
 }
