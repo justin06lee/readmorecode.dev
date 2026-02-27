@@ -1,8 +1,6 @@
 import "server-only";
-import { join } from "path";
-import { pathToFileURL } from "url";
-import { createClient } from "@libsql/client/node";
-import { drizzle } from "drizzle-orm/libsql/node";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 
 const tursoUrl = process.env.TURSO_DB_URL;
 const tursoToken = process.env.TURSO_DB_AUTH_TOKEN;
@@ -20,7 +18,7 @@ const client = tursoUrl
   : createClient({
       url: dbFileName!.startsWith("file:")
         ? dbFileName!
-        : pathToFileURL(join(process.cwd(), dbFileName!)).href,
+        : `file:${dbFileName}`,
     });
 
 export const db = drizzle({ client });
