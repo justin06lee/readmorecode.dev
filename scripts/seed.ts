@@ -6,12 +6,16 @@
  *  2. Generate puzzles by round-robin through repos — each puzzle slot uses a different repo.
  *  3. For each puzzle: pick next repo → fetch tree → pick file → fetch content → call Groq → insert into DB.
  *
- * Uses 8 Groq API keys and 4 models. On Groq 429, cycles model/key and retries the same repo.
+ * Uses 7 Groq API keys and 4 models. On Groq 429, cycles model/key and retries the same repo.
  * On success or generation failure, advances to the next repo for maximum diversity.
  * When all keys cycled, sleeps 1 day. On GitHub rate limit, sleeps 1 min then retries.
  * Files must have 20–200 lines. Category/language set from file.
  *
- * Optional: START_FROM_REPO=owner/repo — use only repos starting from that one (inclusive) in the persisted list.
+ * Env vars:
+ *   START_FROM_REPO=owner/repo — use only repos starting from that one (inclusive) in the persisted list.
+ *   SEED_REPO_START=N          — 0-based start index into the repo list (inclusive).
+ *   SEED_REPO_END=N            — 0-based end index into the repo list (exclusive).
+ *   SEED_REVERSE=false         — set to "false" to iterate repos from start→end. Default is true (end→start).
  */
 import { config } from "dotenv";
 import { join } from "path";
@@ -65,9 +69,13 @@ async function main() {
 
   console.log("=== Seed config ===");
   console.log(`Languages: ${languages.length}`);
-  console.log(`API keys: ${apiKeys.length} (GROQ_API_KEY, GROQ_API_KEY2, ...)`);
+  console.log(`API keys: ${apiKeys.length} (GROQ_API_KEY through GROQ_API_KEY7)`);
   console.log(`Models: ${models.join(", ")}`);
   console.log(`Target puzzles per language: ${TARGET_PER_LANGUAGE}`);
+  console.log(`Repo direction: ${process.env.SEED_REVERSE === "false" ? "start → end" : "end → start (default)"}`);
+  if (process.env.SEED_REPO_START || process.env.SEED_REPO_END) {
+    console.log(`Repo slice: [${process.env.SEED_REPO_START ?? "0"}, ${process.env.SEED_REPO_END ?? "end"})`);
+  }
   console.log("");
   console.log("Language track:  ✓ done  |  ◐ current  |  ○ pending");
   console.log(languageTrack(languages, -1, false));
@@ -129,18 +137,31 @@ async function main() {
       }
     }
 
+    const seedStart = process.env.SEED_REPO_START ? parseInt(process.env.SEED_REPO_START, 10) : undefined;
+    const seedEnd = process.env.SEED_REPO_END ? parseInt(process.env.SEED_REPO_END, 10) : undefined;
+
+    if (seedStart !== undefined || seedEnd !== undefined) {
+      const from = seedStart ?? 0;
+      const to = seedEnd ?? repos.length;
+      repos = repos.slice(from, to);
+      console.log(`[${language}] SEED_REPO_START=${from}, SEED_REPO_END=${to}: sliced to ${repos.length} repos.`);
+    }
+
     console.log(`[${language}] Using ${repos.length} repos (from file + any new pages). No further search API calls for ${language}.`);
     console.log(`[${language}] Phase 2: Generating puzzles from these repos (tree + contents + Groq only)...`);
 
     let consecutiveErrors = 0;
     let keysExhausted = 0;
-    let repoIndex = 0;
+
+    const seedReverse = process.env.SEED_REVERSE !== "false";
+    let repoIndex = seedReverse ? repos.length - 1 : 0;
 
     while (count < TARGET_PER_LANGUAGE) {
       const apiKey = apiKeys[keyIndex];
       const model = models[modelIndex];
       const keyLabel = keyIndex + 1;
-      const currentRepo = repos[repoIndex % repos.length]!;
+      const wrappedIndex = ((repoIndex % repos.length) + repos.length) % repos.length;
+      const currentRepo = repos[wrappedIndex]!;
 
       console.log(`\n[${language}] --- Puzzle ${count + 1}/${TARGET_PER_LANGUAGE} (key #${keyLabel}, model: ${model}, repo: ${currentRepo.full_name}) ---`);
 
@@ -165,7 +186,7 @@ async function main() {
         } else {
           console.log(`[${language}] No puzzle produced from ${currentRepo.full_name}, moving to next repo.`);
         }
-        repoIndex++;
+        repoIndex += seedReverse ? -1 : 1;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.startsWith("GITHUB_RATE_LIMIT")) {
@@ -200,7 +221,7 @@ async function main() {
           console.warn(`[${language}] Too many consecutive errors. Moving to next language.`);
           break;
         }
-        repoIndex++;
+        repoIndex += seedReverse ? -1 : 1;
       }
 
       await sleep(THROTTLE_MS);
