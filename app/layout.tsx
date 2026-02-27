@@ -28,6 +28,15 @@ export const NAVBAR_HEIGHT = "3.5rem";
 export const metadata: Metadata = {
   title: "readmorecode.dev",
   description: "Reading code is the new skill. Practice with code comprehension puzzles.",
+  icons: {
+    icon: [
+      { url: "/readmorecode.png", media: "(prefers-color-scheme: light)" },
+      { url: "/readmorecode-white.png", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: [
+      { url: "/readmorecode.png" },
+    ],
+  },
 };
 
 export default function RootLayout({
