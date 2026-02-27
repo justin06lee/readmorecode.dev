@@ -16,9 +16,9 @@ export default function Home() {
         style={{ minHeight: `calc(100vh - ${NAVBAR_H})` }}
       >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(120,120,120,0.08),transparent)] dark:bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(120,120,120,0.12),transparent)]" />
-        <div className="relative flex w-full max-w-2xl flex-col items-center gap-6 text-center">
+        <div className="relative flex w-full max-w-4xl flex-col items-center gap-6 text-center">
           <motion.h1
-            className={`pb-2 text-5xl leading-tight sm:text-6xl md:text-7xl [background-clip:text] [-webkit-background-clip:text] [color:transparent]
+            className={`pb-2 text-5xl leading-tight sm:text-6xl md:text-7xl md:whitespace-nowrap [background-clip:text] [-webkit-background-clip:text] [color:transparent]
               ${theme === "light" ? "bg-gradient-to-r from-violet-500 via-fuchsia-500 via-amber-400 to-emerald-500" : "bg-[linear-gradient(180deg,#e4e4e7_0%,#a1a1aa_50%,#71717a_100%)]"}`}
             style={{ fontFamily: "var(--font-instrument-serif), serif" }}
             initial={{ opacity: 0, y: 20 }}

@@ -19,7 +19,7 @@ function sleep(ms: number): Promise<void> {
 
 function getApiKeys(): string[] {
   const keys: string[] = [];
-  for (let i = 1; i <= 8; i++) {
+  for (let i = 1; i <= 7; i++) {
     const key = process.env[i === 1 ? "GROQ_API_KEY" : `GROQ_API_KEY${i}`];
     if (key) keys.push(key);
   }
