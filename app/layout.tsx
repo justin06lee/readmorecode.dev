@@ -30,8 +30,7 @@ export const metadata: Metadata = {
   description: "Reading code is the new skill. Practice with code comprehension puzzles.",
   icons: {
     icon: [
-      { url: "/readmorecode.png", media: "(prefers-color-scheme: light)" },
-      { url: "/readmorecode-white.png", media: "(prefers-color-scheme: dark)" },
+      { url: "/readmorecode.png" },
     ],
     apple: [
       { url: "/readmorecode.png" },
