@@ -23,4 +23,13 @@ const client = tursoUrl
 
 export const db = drizzle({ client });
 
-export { puzzlesTable, reportsTable } from "./schema";
+export {
+  puzzlesTable,
+  reportsTable,
+  usersTable,
+  userSessionsTable,
+  adminSessionsTable,
+  requestRateLimitsTable,
+  puzzleAttemptsTable,
+  guestDailyUsageTable,
+} from "./schema";

@@ -7,6 +7,7 @@ import { pathToFileURL } from "url";
 import { createClient } from "@libsql/client/node";
 import { drizzle } from "drizzle-orm/libsql/node";
 import { eq, sql } from "drizzle-orm";
+import { getCategoryAndLanguageFromPath } from "../lib/categories";
 import { puzzlesTable } from "../lib/db/schema";
 import type { Puzzle } from "../lib/types";
 
@@ -54,6 +55,42 @@ export async function getPuzzleCountByLanguage(language: string): Promise<number
     .from(puzzlesTable)
     .where(eq(puzzlesTable.language, language));
   return Number(result[0]?.count ?? 0);
+}
+
+export async function backfillPuzzleMetadataFromFilePath(): Promise<number> {
+  const rows = await db
+    .select({
+      id: puzzlesTable.id,
+      file: puzzlesTable.file,
+      category: puzzlesTable.category,
+      language: puzzlesTable.language,
+    })
+    .from(puzzlesTable);
+
+  let updated = 0;
+  for (const row of rows) {
+    if (row.category && row.language) {
+      continue;
+    }
+    let path = "";
+    try {
+      const file = JSON.parse(row.file) as { path?: string };
+      path = file.path ?? "";
+    } catch {
+      continue;
+    }
+    if (!path) {
+      continue;
+    }
+    const { category, language } = getCategoryAndLanguageFromPath(path);
+    await db
+      .update(puzzlesTable)
+      .set({ category, language })
+      .where(eq(puzzlesTable.id, row.id));
+    updated++;
+  }
+
+  return updated;
 }
 
 export async function insertPuzzle(puzzle: Puzzle): Promise<void> {

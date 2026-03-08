@@ -46,6 +46,8 @@ interface CodePuzzleViewProps {
   onApplyFilters?: () => void;
   onClearFilters?: () => void;
   categories?: PuzzleCategory[];
+  filterLocked?: boolean;
+  filterApplyLabel?: string;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -74,9 +76,11 @@ export function CodePuzzleView({
   onApplyFilters,
   onClearFilters,
   categories = [],
+  filterLocked = false,
+  filterApplyLabel = "Apply",
 }: CodePuzzleViewProps) {
-  const { theme } = useTheme();
-  const editorTheme = theme === "dark" ? "vs-dark" : "vs-light";
+  const { theme, mounted } = useTheme();
+  const editorTheme = (mounted ? theme : "dark") === "dark" ? "vs-dark" : "vs-light";
   const editorRef = useRef<MonacoEditorInstance | null>(null);
   const monacoRef = useRef<MonacoInstance | null>(null);
   const decorationsRef = useRef<string[]>([]);
@@ -416,6 +420,7 @@ export function CodePuzzleView({
                   <select
                     value={filterCategory}
                     onChange={(e) => onFilterCategoryChange(e.target.value as PuzzleCategory | "")}
+                    disabled={filterLocked}
                     className="rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                   >
                     <option value="">All categories</option>
@@ -429,6 +434,7 @@ export function CodePuzzleView({
                   <select
                     value={filterLanguage}
                     onChange={(e) => onFilterLanguageChange(e.target.value)}
+                    disabled={filterLocked}
                     className="rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                   >
                     <option value="">All languages</option>
@@ -442,8 +448,13 @@ export function CodePuzzleView({
                   onClick={onApplyFilters}
                   className="rounded-lg bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
                 >
-                  Apply
+                  {filterApplyLabel}
                 </button>
+                {filterLocked && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Filters are available after signup.
+                  </p>
+                )}
                 {(filterCategory || filterLanguage) && (
                   <button
                     type="button"

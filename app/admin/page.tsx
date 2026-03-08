@@ -34,7 +34,8 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
       if (res.ok) {
         onLogin();
       } else {
-        setError("Invalid password");
+        const data = await res.json().catch(() => ({}));
+        setError(typeof data.error === "string" ? data.error : "Invalid password");
       }
     } catch {
       setError("Something went wrong");
@@ -73,6 +74,7 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const fetchReported = useCallback(async () => {
     setLoading(true);
@@ -116,6 +118,16 @@ function AdminDashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+      window.location.reload();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   if (loading) {
     return <p className="p-8 text-zinc-500">Loading reported puzzles…</p>;
   }
@@ -132,13 +144,23 @@ function AdminDashboard() {
             Reported Puzzles
             <span className="ml-2 text-base font-normal text-zinc-500">({puzzles.length})</span>
           </h1>
-          <button
-            type="button"
-            onClick={fetchReported}
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={fetchReported}
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              {loggingOut ? "Logging out…" : "Log out"}
+            </button>
+          </div>
         </div>
 
         {puzzles.length === 0 ? (

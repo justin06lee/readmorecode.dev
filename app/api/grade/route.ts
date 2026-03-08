@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
+import { getAccessContext } from "@/lib/access";
+import { requireSameOrigin } from "@/lib/csrf";
+import { getPuzzleByPuzzleId } from "@/lib/db/puzzles";
+import { incrementGuestDailyUsage, recordPuzzleAttempt } from "@/lib/db/users";
 import { gradeSubmission } from "@/lib/grading";
+import { getCachedPuzzle } from "@/lib/puzzle-generator";
 import type { Submission, SelectedRange } from "@/lib/types";
 
 const MAX_EXPLANATION_LENGTH = 2000;
@@ -71,6 +76,11 @@ function validateSubmission(body: unknown): { ok: true; data: Submission } | { o
 
 export async function POST(request: Request) {
   try {
+    const csrfError = requireSameOrigin(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const body = await request.json();
     const validated = validateSubmission(body);
     if (!validated.ok) {
@@ -79,6 +89,21 @@ export async function POST(request: Request) {
         { status: validated.status }
       );
     }
+
+    const accessContext = await getAccessContext(request);
+    if (accessContext.access.blocked) {
+      return NextResponse.json(
+        {
+          error:
+            accessContext.access.reason === "signup"
+              ? "Guest limit reached for today. Sign up to keep solving."
+              : "Daily free limit reached. Subscribe to keep solving today.",
+          access: accessContext.access,
+        },
+        { status: 403 }
+      );
+    }
+
     const result = await gradeSubmission(validated.data);
     if (!result) {
       return NextResponse.json(
@@ -86,7 +111,44 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     }
-    return NextResponse.json(result);
+
+    const puzzle =
+      getCachedPuzzle(validated.data.puzzleId) ??
+      (await getPuzzleByPuzzleId(validated.data.puzzleId));
+
+    if (accessContext.user && puzzle) {
+      await recordPuzzleAttempt({
+        userId: accessContext.user.id,
+        puzzleId: puzzle.puzzleId,
+        question: puzzle.question,
+        language: puzzle.language ?? null,
+        category: puzzle.category ?? null,
+        correct: result.correct,
+      });
+    } else if (accessContext.guestKey) {
+      await incrementGuestDailyUsage(accessContext.guestKey, new Date().toISOString().slice(0, 10));
+    }
+
+    const nextAccess = accessContext.access.dailyLimit == null
+      ? {
+          ...accessContext.access,
+          usedToday: accessContext.access.usedToday + 1,
+        }
+      : (() => {
+          const usedToday = accessContext.access.usedToday + 1;
+          const remainingToday = Math.max(0, accessContext.access.dailyLimit - usedToday);
+          return {
+            ...accessContext.access,
+            usedToday,
+            remainingToday,
+            blocked: remainingToday <= 0,
+          };
+        })();
+
+    return NextResponse.json({
+      ...result,
+      access: nextAccess,
+    });
   } catch {
     return NextResponse.json(
       { error: "Something went wrong." },

@@ -7,7 +7,8 @@ import { useTheme } from "@/components/ThemeProvider";
 const NAVBAR_H = "3.5rem";
 
 export default function Home() {
-  const { theme } = useTheme();
+  const { theme, mounted } = useTheme();
+  const resolvedTheme = mounted ? theme : "dark";
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-zinc-50 dark:bg-zinc-950">
@@ -19,7 +20,7 @@ export default function Home() {
         <div className="relative flex w-full max-w-4xl flex-col items-center gap-6 text-center">
           <motion.h1
             className={`pb-2 text-5xl leading-tight sm:text-6xl md:text-7xl md:whitespace-nowrap [background-clip:text] [-webkit-background-clip:text] [color:transparent]
-              ${theme === "light" ? "bg-gradient-to-r from-violet-500 via-fuchsia-500 via-amber-400 to-emerald-500" : "bg-[linear-gradient(180deg,#e4e4e7_0%,#a1a1aa_50%,#71717a_100%)]"}`}
+              ${resolvedTheme === "light" ? "bg-gradient-to-r from-violet-500 via-fuchsia-500 via-amber-400 to-emerald-500" : "bg-[linear-gradient(180deg,#e4e4e7_0%,#a1a1aa_50%,#71717a_100%)]"}`}
             style={{ fontFamily: "var(--font-instrument-serif), serif" }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

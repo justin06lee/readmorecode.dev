@@ -20,10 +20,6 @@ const PUZZLE_CACHE_MAX = 50;
 const MIN_LINES = 20;
 const puzzleCache = new Map<string, Puzzle>();
 
-function randomChoice<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]!;
-}
-
 function seedRandom(seed?: string): () => number {
   if (!seed) return Math.random;
   let h = 0;

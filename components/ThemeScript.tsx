@@ -1,12 +1,8 @@
-import Script from "next/script";
-
 const THEME_KEY = "readmorecode-theme";
 
 export function ThemeScript() {
   return (
-    <Script
-      id="theme-init"
-      strategy="beforeInteractive"
+    <script
       dangerouslySetInnerHTML={{
         __html: `
 (function() {

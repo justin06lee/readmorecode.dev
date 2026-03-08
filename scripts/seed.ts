@@ -57,7 +57,7 @@ async function main() {
   const { SEED_MODELS } = await import("./groq-client");
   const { fetchReposWithPersistence } = await import("./github-search-client");
   const { generatePuzzle } = await import("./seed-puzzle-generator");
-  const { getPuzzleCountByLanguage, insertPuzzle } = await import("./db-client");
+  const { backfillPuzzleMetadataFromFilePath, getPuzzleCountByLanguage, insertPuzzle } = await import("./db-client");
 
   const apiKeys = getApiKeys();
   if (apiKeys.length === 0) {
@@ -66,12 +66,14 @@ async function main() {
   }
   const models = [...SEED_MODELS];
   const languages = getAllLanguages();
+  const backfilled = await backfillPuzzleMetadataFromFilePath();
 
   console.log("=== Seed config ===");
   console.log(`Languages: ${languages.length}`);
   console.log(`API keys: ${apiKeys.length} (GROQ_API_KEY through GROQ_API_KEY7)`);
   console.log(`Models: ${models.join(", ")}`);
   console.log(`Target puzzles per language: ${TARGET_PER_LANGUAGE}`);
+  console.log(`Backfilled metadata rows: ${backfilled}`);
   console.log(`Repo direction: ${process.env.SEED_REVERSE === "false" ? "start → end" : "end → start (default)"}`);
   if (process.env.SEED_REPO_START || process.env.SEED_REPO_END) {
     console.log(`Repo slice: [${process.env.SEED_REPO_START ?? "0"}, ${process.env.SEED_REPO_END ?? "end"})`);
@@ -151,8 +153,6 @@ async function main() {
     console.log(`[${language}] Phase 2: Generating puzzles from these repos (tree + contents + Groq only)...`);
 
     let consecutiveErrors = 0;
-    let keysExhausted = 0;
-
     const seedReverse = process.env.SEED_REVERSE !== "false";
     let repoIndex = seedReverse ? repos.length - 1 : 0;
 
@@ -204,7 +204,6 @@ async function main() {
               `[${language}] Groq rate limit (429). All models tried for this key. Switching to key #${keyIndex + 1}, model ${newModel}. Will retry same repo.`
             );
             if (keyIndex === 0) {
-              keysExhausted++;
               console.warn(`[${language}] All ${apiKeys.length} keys cycled. Sleeping 1 day...`);
               await sleep(ONE_DAY_MS);
             }

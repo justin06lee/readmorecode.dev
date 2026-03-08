@@ -71,3 +71,54 @@ export interface GradeResult {
   whatYouMissed: string | null;
   expectedRange: SelectedRange | null;
 }
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  username: string;
+  avatarUrl: string | null;
+  createdAt: number;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  subscriptionStatus: string | null;
+  subscriptionCurrentPeriodEnd: number | null;
+  isPaid: boolean;
+}
+
+export interface PuzzleAttempt {
+  id: number;
+  puzzleId: string;
+  question: string;
+  language: string | null;
+  category: PuzzleCategory | null;
+  correct: boolean;
+  attemptedAt: number;
+}
+
+export interface ProfileStats {
+  totalAttempts: number;
+  correctAttempts: number;
+  currentStreak: number;
+  longestStreak: number;
+}
+
+export interface HeatmapDay {
+  date: string;
+  count: number;
+}
+
+export interface ProfileData {
+  user: AuthUser;
+  stats: ProfileStats;
+  heatmap: HeatmapDay[];
+  history: PuzzleAttempt[];
+}
+
+export interface AccessState {
+  tier: "guest" | "free" | "paid";
+  dailyLimit: number | null;
+  usedToday: number;
+  remainingToday: number | null;
+  blocked: boolean;
+  reason: "signup" | "subscription" | null;
+}

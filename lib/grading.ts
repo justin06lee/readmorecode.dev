@@ -1,7 +1,8 @@
 import "server-only";
+import { getPuzzleByPuzzleId } from "./db/puzzles";
 import { getGroqChatCompletionForGrading } from "./groq";
-import { getCachedPuzzle } from "./puzzle-generator";
-import type { Puzzle, Submission, GradeResult, SelectedRange } from "./types";
+import { getCachedPuzzle, setCachedPuzzle } from "./puzzle-generator";
+import type { Submission, GradeResult, SelectedRange } from "./types";
 
 interface LLMGradeRaw {
   correct?: boolean;
@@ -27,10 +28,16 @@ function parseGradeJson(text: string): LLMGradeRaw | null {
 export async function gradeSubmission(
   submission: Submission
 ): Promise<GradeResult | null> {
-  const puzzle = getCachedPuzzle(submission.puzzleId);
+  let puzzle = getCachedPuzzle(submission.puzzleId);
+  if (!puzzle) {
+    puzzle = await getPuzzleByPuzzleId(submission.puzzleId);
+    if (puzzle) {
+      setCachedPuzzle(puzzle);
+    }
+  }
   if (!puzzle) return null;
 
-  const { answerKey, question, gradingRubric, file } = puzzle;
+  const { answerKey, question, gradingRubric } = puzzle;
   const expectedRange: SelectedRange = {
     startLine: answerKey.startLine,
     endLine: answerKey.endLine,

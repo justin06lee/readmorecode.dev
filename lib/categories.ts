@@ -99,7 +99,6 @@ export const EXTENSIONS_BY_LANGUAGE: Record<string, string[]> = {
 };
 
 export function isPathForLanguage(path: string, language: string): boolean {
-  const ext = path.toLowerCase().replace(/^.*\./, ".");
   const exts = EXTENSIONS_BY_LANGUAGE[language];
   if (!exts) return true;
   return exts.some((e) => path.toLowerCase().endsWith(e));

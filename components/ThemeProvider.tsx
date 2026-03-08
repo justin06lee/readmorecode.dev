@@ -1,13 +1,25 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 
 const THEME_KEY = "readmorecode-theme";
 
 type Theme = "dark" | "light";
 
+function readThemePreference(): Theme {
+  if (typeof document !== "undefined") {
+    return document.documentElement.classList.contains("light") ? "light" : "dark";
+  }
+  if (typeof window !== "undefined") {
+    const stored = window.localStorage.getItem(THEME_KEY);
+    return stored === "light" ? "light" : "dark";
+  }
+  return "dark";
+}
+
 const ThemeContext = createContext<{
   theme: Theme;
+  mounted: boolean;
   setTheme: (t: Theme) => void;
 } | null>(null);
 
@@ -18,14 +30,12 @@ export function useTheme() {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(THEME_KEY) as Theme | null;
-    setThemeState(stored === "light" ? "light" : "dark");
-    setMounted(true);
-  }, []);
+  const [theme, setThemeState] = useState<Theme>(readThemePreference);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   const setTheme = useCallback((t: Theme) => {
     setThemeState(t);
@@ -41,7 +51,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [mounted, theme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, mounted, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -65,15 +75,16 @@ function MoonIcon({ className }: { className?: string }) {
 }
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { theme, mounted, setTheme } = useTheme();
+  const resolvedTheme = mounted ? theme : "dark";
   return (
     <button
       type="button"
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
       className="rounded-xl p-2.5 text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-      aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
     >
-      {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+      {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
     </button>
   );
 }

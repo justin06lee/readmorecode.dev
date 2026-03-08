@@ -73,6 +73,17 @@ export async function getRandomPuzzle(filter?: { category?: string; language?: s
   return rowToPuzzle(row);
 }
 
+export async function getPuzzleByPuzzleId(puzzleId: string): Promise<Puzzle | null> {
+  const rows = await db
+    .select()
+    .from(puzzlesTable)
+    .where(eq(puzzlesTable.puzzleId, puzzleId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  return rowToPuzzle(row);
+}
+
 export async function getReportCount(puzzleId: string): Promise<number> {
   const result = await db
     .select({ count: sql<number>`count(*)` })

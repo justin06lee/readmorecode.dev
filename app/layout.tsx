@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeScript } from "@/components/ThemeScript";
 import { Header } from "@/components/Header";
@@ -52,9 +53,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
       >
         <ThemeProvider>
-          <Header />
-          <div style={{ paddingTop: NAVBAR_HEIGHT }}>{children}</div>
+          <AuthProvider>
+            <Header />
+            <div style={{ paddingTop: NAVBAR_HEIGHT }}>{children}</div>
 	  <SpeedInsights />
+          </AuthProvider>
           <Analytics />
         </ThemeProvider>
       </body>

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { requireSameOrigin } from "@/lib/csrf";
 import { db, reportsTable } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const MAX_DETAIL_LENGTH = 1000;
 
@@ -38,6 +40,27 @@ function validateBody(body: unknown): { ok: true; data: { puzzleId: string; reas
 
 export async function POST(request: Request) {
   try {
+    const csrfError = requireSameOrigin(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
+    const rateLimit = await checkRateLimit(request, "report-submit", {
+      windowMs: 60 * 60 * 1000,
+      maxRequests: 20,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many reports submitted. Try again later." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const validated = validateBody(body);
     if (!validated.ok) {

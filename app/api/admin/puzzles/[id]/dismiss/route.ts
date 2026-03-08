@@ -1,12 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { requireSameOrigin } from "@/lib/csrf";
 import { db, reportsTable } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const csrfError = requireSameOrigin(request);
+  if (csrfError) {
+    return csrfError;
+  }
+
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
