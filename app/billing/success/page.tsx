@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -12,7 +13,7 @@ type SyncState = "syncing" | "ready" | "error";
 
 const COLORS = ["#f59e0b", "#10b981", "#3b82f6", "#ef4444", "#f97316", "#8b5cf6"];
 
-export default function BillingSuccessPage() {
+function BillingSuccessContent() {
   const searchParams = useSearchParams();
   const { setUser } = useAuth();
   const [state, setState] = useState<SyncState>("syncing");
@@ -127,5 +128,34 @@ export default function BillingSuccessPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+function BillingSuccessFallback() {
+  return (
+    <div className="relative flex min-h-[calc(100vh-3.5rem)] items-center justify-center overflow-hidden bg-zinc-50 px-4 py-12 dark:bg-zinc-950">
+      <div className="relative z-10 w-full max-w-xl rounded-[2rem] border border-zinc-200 bg-white/92 p-8 text-center shadow-xl dark:border-zinc-700 dark:bg-zinc-900/88">
+        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-600 dark:text-emerald-400">
+          Subscription unlocked
+        </p>
+        <h1
+          className="mt-4 text-5xl text-zinc-900 dark:text-zinc-100"
+          style={{ fontFamily: "var(--font-instrument-serif), serif" }}
+        >
+          Finishing up…
+        </h1>
+        <p className="mt-4 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+          We’re confirming your checkout session and unlocking unlimited puzzles.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function BillingSuccessPage() {
+  return (
+    <Suspense fallback={<BillingSuccessFallback />}>
+      <BillingSuccessContent />
+    </Suspense>
   );
 }

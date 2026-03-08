@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
@@ -10,7 +10,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { mergeUserWithStoredAvatar, setStoredAvatar } from "@/lib/avatar-storage";
 import type { ProfileData } from "@/lib/types";
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const { user, loading: authLoading, openAuthModal, setUser } = useAuth();
   const searchParams = useSearchParams();
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -319,5 +319,21 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ProfilePageFallback() {
+  return (
+    <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
+      <p className="text-zinc-500 dark:text-zinc-400">Loading profile…</p>
+    </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<ProfilePageFallback />}>
+      <ProfilePageContent />
+    </Suspense>
   );
 }
