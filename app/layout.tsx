@@ -26,9 +26,37 @@ const instrumentSerif = Instrument_Serif({
 
 export const NAVBAR_HEIGHT = "3.5rem";
 
+const appUrl = process.env.APP_URL || "https://readmorecode.dev";
+const metadataBase = (() => {
+  try {
+    return new URL(appUrl);
+  } catch {
+    return new URL("https://readmorecode.dev");
+  }
+})();
+
 export const metadata: Metadata = {
+  metadataBase,
   title: "readmorecode.dev",
   description: "Reading code is the new skill. Practice with code comprehension puzzles.",
+  openGraph: {
+    title: "readmorecode.dev",
+    description: "Reading code is the new skill. Practice with code comprehension puzzles.",
+    url: "/",
+    siteName: "readmorecode.dev",
+    images: [
+      {
+        url: "/readmorecode-linkbanner.png",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "readmorecode.dev",
+    description: "Reading code is the new skill. Practice with code comprehension puzzles.",
+    images: ["/readmorecode-linkbanner.png"],
+  },
   icons: {
     icon: [
       { url: "/readmorecode.png" },
