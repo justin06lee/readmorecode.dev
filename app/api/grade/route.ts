@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getAccessContext } from "@/lib/access";
 import { requireSameOrigin } from "@/lib/csrf";
-import { getPuzzleByPuzzleId } from "@/lib/db/puzzles";
 import { incrementGuestDailyUsage, recordPuzzleAttempt } from "@/lib/db/users";
 import { gradeSubmission } from "@/lib/grading";
 import { getCachedPuzzle } from "@/lib/puzzle-generator";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { Submission, SelectedRange } from "@/lib/types";
 
 const MAX_EXPLANATION_LENGTH = 2000;
@@ -81,6 +81,22 @@ export async function POST(request: Request) {
       return csrfError;
     }
 
+    const rateLimit = await checkRateLimit(request, "grade-submit", {
+      windowMs: 60 * 60 * 1000,
+      maxRequests: 60,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many submissions. Try again later." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const validated = validateSubmission(body);
     if (!validated.ok) {
@@ -112,9 +128,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const puzzle =
-      getCachedPuzzle(validated.data.puzzleId) ??
-      (await getPuzzleByPuzzleId(validated.data.puzzleId));
+    // gradeSubmission resolves the puzzle (cache, then DB) and populates the
+    // cache via setCachedPuzzle before returning a non-null result, so it is
+    // guaranteed present in the cache here. No second DB round-trip needed.
+    const puzzle = getCachedPuzzle(validated.data.puzzleId);
 
     if (accessContext.user && puzzle) {
       await recordPuzzleAttempt({

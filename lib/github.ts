@@ -10,6 +10,7 @@ import { sanitizeContent } from "./sanitize";
 import type { FileInfo } from "./types";
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const FILE_CACHE_MAX = 200;
 
 interface CacheEntry {
   content: string;
@@ -48,13 +49,17 @@ export async function fetchFileContent(
 ): Promise<FileInfo | null> {
   const key = cacheKey(owner, repo, path, ref);
   const cached = fileCache.get(key);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return {
-      path,
-      content: cached.content,
-      language: getLanguageFromPath(path),
-      sizeBytes: cached.sizeBytes,
-    };
+  if (cached) {
+    if (Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return {
+        path,
+        content: cached.content,
+        language: getLanguageFromPath(path),
+        sizeBytes: cached.sizeBytes,
+      };
+    }
+    // Expired: drop the stale entry so the cache does not grow unbounded.
+    fileCache.delete(key);
   }
 
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
@@ -65,10 +70,20 @@ export async function fetchFileContent(
   });
   if (!res.ok) return null;
 
+  // Pre-check the declared size before buffering the whole body into memory.
+  const contentLength = Number(res.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_FILE_BYTES) return null;
+
   const raw = await res.text();
-  if (raw.length > MAX_FILE_BYTES) return null;
+  const rawBytes = Buffer.byteLength(raw, "utf8");
+  if (rawBytes > MAX_FILE_BYTES) return null;
   const sanitized = sanitizeContent(raw);
 
+  // Simple size cap: evict the oldest entry when the cache is full.
+  if (fileCache.size >= FILE_CACHE_MAX) {
+    const oldestKey = fileCache.keys().next().value;
+    if (oldestKey) fileCache.delete(oldestKey);
+  }
   fileCache.set(key, {
     content: sanitized,
     sizeBytes: Buffer.byteLength(sanitized, "utf8"),
@@ -97,7 +112,7 @@ export async function fetchRepoTree(
   repo: string,
   ref: string
 ): Promise<TreeFile[] | null> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/${ref}?recursive=1`;
+  const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`;
   const res = await fetch(url, {
     cache: "no-store",
     headers: ghHeaders(),

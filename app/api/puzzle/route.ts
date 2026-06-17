@@ -16,12 +16,20 @@ export async function GET(request: Request) {
         if (fromDb) {
           setCachedPuzzle(fromDb);
           const reportCount = await getReportCount(fromDb.puzzleId);
+          // Client-safe DTO: never send answerKey, explanation, or gradingRubric
+          // to the browser. The server re-fetches the puzzle by puzzleId when
+          // grading (lib/grading.ts), so the client never needs the answer key.
           const forClient = {
-            ...fromDb,
+            puzzleId: fromDb.puzzleId,
+            repo: fromDb.repo,
             file: {
               ...fromDb.file,
               content: stripComments(fromDb.file.content, fromDb.file.language),
             },
+            commit: fromDb.commit,
+            question: fromDb.question,
+            category: fromDb.category,
+            language: fromDb.language,
             reportCount,
           };
           return NextResponse.json(forClient);

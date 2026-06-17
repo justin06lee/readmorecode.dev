@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { db, puzzlesTable, reportsTable } from "@/lib/db";
-import { sql, eq, desc } from "drizzle-orm";
+import { sql, desc, inArray } from "drizzle-orm";
 
 export async function GET() {
   if (!(await isAdminAuthenticated())) {
@@ -19,28 +19,29 @@ export async function GET() {
     .groupBy(reportsTable.puzzleId)
     .orderBy(desc(sql`count(*)`));
 
-  const result = [];
-  for (const row of rows) {
-    const puzzle = await db
-      .select({
-        id: puzzlesTable.id,
-        puzzleId: puzzlesTable.puzzleId,
-        question: puzzlesTable.question,
-        language: puzzlesTable.language,
-        category: puzzlesTable.category,
-      })
-      .from(puzzlesTable)
-      .where(eq(puzzlesTable.puzzleId, row.puzzleId))
-      .limit(1);
+  const puzzleIds = rows.map((row) => row.puzzleId);
+  const puzzles = puzzleIds.length
+    ? await db
+        .select({
+          id: puzzlesTable.id,
+          puzzleId: puzzlesTable.puzzleId,
+          question: puzzlesTable.question,
+          language: puzzlesTable.language,
+          category: puzzlesTable.category,
+        })
+        .from(puzzlesTable)
+        .where(inArray(puzzlesTable.puzzleId, puzzleIds))
+    : [];
 
-    result.push({
-      puzzleId: row.puzzleId,
-      reportCount: row.reportCount,
-      reasons: row.reasons,
-      latestReport: row.latestReport,
-      puzzle: puzzle[0] ?? null,
-    });
-  }
+  const puzzleById = new Map(puzzles.map((puzzle) => [puzzle.puzzleId, puzzle]));
+
+  const result = rows.map((row) => ({
+    puzzleId: row.puzzleId,
+    reportCount: row.reportCount,
+    reasons: row.reasons,
+    latestReport: row.latestReport,
+    puzzle: puzzleById.get(row.puzzleId) ?? null,
+  }));
 
   return NextResponse.json(result);
 }

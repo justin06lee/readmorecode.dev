@@ -8,7 +8,7 @@ export function normalizeEmail(value: string): string {
 }
 
 export function normalizeUsername(value: string): string {
-  return value.trim();
+  return value.trim().toLowerCase();
 }
 
 export function validateEmail(email: string): string | null {

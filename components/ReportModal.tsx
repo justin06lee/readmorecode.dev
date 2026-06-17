@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const REASONS = [
   { value: "invalid", label: "Invalid problem" },
@@ -20,6 +20,16 @@ export function ReportModal({ puzzleId, open, onClose, onSubmitted }: ReportModa
   const [detail, setDetail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimer.current !== null) {
+        clearTimeout(closeTimer.current);
+        closeTimer.current = null;
+      }
+    };
+  }, []);
 
   if (!open) return null;
 
@@ -39,7 +49,8 @@ export function ReportModal({ puzzleId, open, onClose, onSubmitted }: ReportModa
       if (res.ok) {
         setDone(true);
         onSubmitted();
-        setTimeout(() => {
+        closeTimer.current = setTimeout(() => {
+          closeTimer.current = null;
           onClose();
           setDone(false);
           setDetail("");

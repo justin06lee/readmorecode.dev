@@ -25,7 +25,7 @@
 *.pem
 
 # seed script persistent repo cache (resumes after rate limit / restart)
-scripts/seed-data/
+**/seed-data/
 
 # debug
 npm-debug.log*

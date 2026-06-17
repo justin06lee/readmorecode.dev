@@ -47,8 +47,15 @@ export async function POST(request: Request) {
   const passwordError = validatePassword(password);
   if (passwordError) return NextResponse.json({ error: passwordError }, { status: 400 });
 
+  // Fast-path pre-checks. The email-conflict message is intentionally generic
+  // to avoid confirming whether a given email is registered (enumeration vector).
+  // Usernames are public by design, so a specific "username taken" message is
+  // an accepted tradeoff for usability.
   if (await getUserWithPasswordByEmail(email)) {
-    return NextResponse.json({ error: "An account with that email already exists." }, { status: 409 });
+    return NextResponse.json(
+      { error: "Could not create account; the email or username may already be in use." },
+      { status: 409 }
+    );
   }
 
   if (await getUserByUsername(username)) {
@@ -56,11 +63,24 @@ export async function POST(request: Request) {
   }
 
   const passwordHash = await hashPassword(password);
-  const user = await createUser({
-    email,
-    username,
-    passwordHash,
-  });
+
+  // The pre-checks above are not transactional; a concurrent signup can pass them
+  // and then lose the race on the UNIQUE(email)/UNIQUE(username) constraints.
+  // Catch the insert failure and return a friendly 409 instead of an unhandled 500.
+  let user;
+  try {
+    user = await createUser({
+      email,
+      username,
+      passwordHash,
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "An account with that email or username already exists." },
+      { status: 409 }
+    );
+  }
+
   await createUserSession(user.id);
 
   return NextResponse.json({ user });
