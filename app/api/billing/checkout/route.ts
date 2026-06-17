@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { requireSameOrigin } from "@/lib/csrf";
 import { updateUserBilling } from "@/lib/db/users";
-import { getAppUrl, getStripe, getStripePriceLookupKey } from "@/lib/stripe";
+import { getAppUrl, getStripe, getStripePriceId } from "@/lib/stripe";
 
 export async function POST(request: Request) {
   const csrfError = requireSameOrigin(request);
@@ -35,22 +35,14 @@ export async function POST(request: Request) {
     });
   }
 
-  const prices = await stripe.prices.list({
-    lookup_keys: [getStripePriceLookupKey()],
-    expand: ["data.product"],
-    limit: 1,
-  });
-  const price = prices.data[0];
-  if (!price) {
-    throw new Error("Stripe price not found for the configured lookup key.");
-  }
+  const priceId = await getStripePriceId();
 
   const session = await stripe.checkout.sessions.create({
     billing_address_collection: "auto",
     customer: customerId,
     line_items: [
       {
-        price: price.id,
+        price: priceId,
         quantity: 1,
       },
     ],

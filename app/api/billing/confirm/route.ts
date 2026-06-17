@@ -3,13 +3,7 @@ import type Stripe from "stripe";
 import { getCurrentUser } from "@/lib/auth";
 import { requireSameOrigin } from "@/lib/csrf";
 import { updateUserBilling } from "@/lib/db/users";
-import { getStripe } from "@/lib/stripe";
-
-function subscriptionPeriodEnd(subscription: Stripe.Subscription): number | null {
-  return subscription.items.data[0]?.current_period_end
-    ? subscription.items.data[0].current_period_end * 1000
-    : null;
-}
+import { getStripe, subscriptionPeriodEndMs } from "@/lib/stripe";
 
 export async function POST(request: Request) {
   const csrfError = requireSameOrigin(request);
@@ -39,14 +33,18 @@ export async function POST(request: Request) {
 
   const customerId =
     typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
-  const subscription = session.subscription as Stripe.Subscription | null;
+
+  // Only elevate subscription state for a genuinely completed/paid checkout.
+  // Otherwise persist just the customer link without granting entitlement.
+  const isPaidSession = session.status === "complete" || session.payment_status === "paid";
+  const subscription = isPaidSession ? (session.subscription as Stripe.Subscription | null) : null;
 
   const updated = await updateUserBilling({
     userId: user.id,
     stripeCustomerId: customerId ?? user.stripeCustomerId,
     stripeSubscriptionId: subscription?.id ?? user.stripeSubscriptionId,
     subscriptionStatus: subscription?.status ?? user.subscriptionStatus,
-    subscriptionCurrentPeriodEnd: subscription ? subscriptionPeriodEnd(subscription) : user.subscriptionCurrentPeriodEnd,
+    subscriptionCurrentPeriodEnd: subscription ? subscriptionPeriodEndMs(subscription) : user.subscriptionCurrentPeriodEnd,
   });
 
   return NextResponse.json({ user: updated });

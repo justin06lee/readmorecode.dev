@@ -10,6 +10,10 @@ if (!tursoUrl && !dbFileName) {
   throw new Error("Set either TURSO_DB_URL (Turso cloud) or DB_FILE_NAME (local SQLite) in .env.local");
 }
 
+if (tursoUrl && tursoUrl.startsWith("libsql://") && !tursoToken) {
+  throw new Error("TURSO_DB_AUTH_TOKEN is required when TURSO_DB_URL points to a remote libsql:// database");
+}
+
 const client = tursoUrl
   ? createClient({
       url: tursoUrl,

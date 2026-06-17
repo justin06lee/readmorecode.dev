@@ -30,7 +30,10 @@ function validateBody(body: unknown): { ok: true; data: { puzzleId: string; reas
   }
   let clientReportedAt: string | undefined;
   if (b.clientReportedAt != null && typeof b.clientReportedAt === "string") {
-    clientReportedAt = b.clientReportedAt.slice(0, 50);
+    const candidate = b.clientReportedAt.slice(0, 50);
+    if (!Number.isNaN(Date.parse(candidate))) {
+      clientReportedAt = candidate;
+    }
   }
   return {
     ok: true,

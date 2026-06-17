@@ -26,7 +26,16 @@ export function UserAvatar({
 }: UserAvatarProps) {
   const initials = useMemo(() => initialsForName(username), [username]);
 
-  if (avatarUrl) {
+  const safeAvatarUrl = useMemo(() => {
+    if (!avatarUrl) return null;
+    // Only allow self-contained data image URLs or https URLs.
+    if (!/^(data:image\/|https:\/\/)/.test(avatarUrl)) return null;
+    // Reject characters that could break out of the CSS url("…") context.
+    if (/["'()\\\n\r]/.test(avatarUrl)) return null;
+    return avatarUrl;
+  }, [avatarUrl]);
+
+  if (safeAvatarUrl) {
     return (
       <div
         role="img"
@@ -35,7 +44,7 @@ export function UserAvatar({
         style={{
           width: size,
           height: size,
-          backgroundImage: `url("${avatarUrl}")`,
+          backgroundImage: `url("${safeAvatarUrl}")`,
         }}
       />
     );

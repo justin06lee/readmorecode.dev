@@ -101,8 +101,14 @@ function AdminDashboard() {
     if (!confirm(`Delete puzzle "${puzzleId}" and all its reports?`)) return;
     setActionLoading(puzzleId);
     try {
-      await fetch(`/api/admin/puzzles/${encodeURIComponent(puzzleId)}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/puzzles/${encodeURIComponent(puzzleId)}`, { method: "DELETE" });
+      if (!res.ok) {
+        setError(res.status === 401 ? "Session expired. Please reload." : "Failed to delete puzzle.");
+        return;
+      }
       setPuzzles((prev) => prev.filter((p) => p.puzzleId !== puzzleId));
+    } catch {
+      setError("Failed to delete puzzle.");
     } finally {
       setActionLoading(null);
     }
@@ -111,8 +117,14 @@ function AdminDashboard() {
   const handleDismiss = async (puzzleId: string) => {
     setActionLoading(puzzleId);
     try {
-      await fetch(`/api/admin/puzzles/${encodeURIComponent(puzzleId)}/dismiss`, { method: "POST" });
+      const res = await fetch(`/api/admin/puzzles/${encodeURIComponent(puzzleId)}/dismiss`, { method: "POST" });
+      if (!res.ok) {
+        setError(res.status === 401 ? "Session expired. Please reload." : "Failed to dismiss reports.");
+        return;
+      }
       setPuzzles((prev) => prev.filter((p) => p.puzzleId !== puzzleId));
+    } catch {
+      setError("Failed to dismiss reports.");
     } finally {
       setActionLoading(null);
     }
@@ -236,7 +248,10 @@ export default function AdminPage() {
   useEffect(() => {
     fetch("/api/admin/puzzles")
       .then((res) => {
-        if (res.ok) setAuthenticated(true);
+        setAuthenticated(res.ok);
+      })
+      .catch(() => {
+        setAuthenticated(false);
       })
       .finally(() => setChecking(false));
   }, []);

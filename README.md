@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# readmorecode.dev
 
-## Getting Started
+A web app for practicing code comprehension. It serves real-world source files from public GitHub
+repositories as puzzles: you read a snippet, identify the line range that answers a question, and an
+LLM grades your selection and explains the answer.
 
-First, run the development server:
+## Stack
+
+- **Next.js 16** (App Router, React 19)
+- **Drizzle ORM** over SQLite locally / **Turso** (libsql) in production
+- **Groq** LLM API for puzzle generation and grading
+- **GitHub API** for fetching repository trees and file contents
+- **Stripe** for subscription billing
+- Custom cookie-based auth (scrypt password hashing, SHA-256 session-token hashing)
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+cp .env.example .env.local   # then fill in the values
+bun run db:migrate           # apply migrations to the database
+bun run db:seed              # generate an initial set of puzzles (optional)
+bun run dev                  # start the dev server on http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+See [`.env.example`](./.env.example) for the full list. At minimum you need a `GROQ_API_KEY`, a
+`GITHUB_TOKEN`, and a database (`DB_FILE_NAME` for local SQLite, or `TURSO_DB_URL` +
+`TURSO_DB_AUTH_TOKEN` for Turso). Stripe and admin variables are required only for billing and the
+admin dashboard.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+| Command | Description |
+| --- | --- |
+| `bun run dev` | Start the Next.js dev server |
+| `bun run build` | Production build |
+| `bun run start` | Serve the production build |
+| `bun run lint` | Run ESLint |
+| `bun run db:migrate` | Apply database migrations |
+| `bun run db:seed` | Generate puzzles from GitHub repos via Groq |
+| `bun run db:generate` | Generate a Drizzle migration from schema changes |
+| `bun run db:push` | Push the schema directly to the database |
+| `bun run db:repair` | Repair malformed stored puzzles |
+| `bun run db:regenerate` | Regenerate puzzles |
 
-To learn more about Next.js, take a look at the following resources:
+## Project layout
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `app/` — App Router pages and API routes
+- `components/` — React UI components
+- `lib/` — server-side logic (auth, billing, grading, db access, GitHub/Groq clients)
+- `lib/db/` — Drizzle schema and query helpers
+- `drizzle/` — generated SQL migrations
+- `scripts/` — database seeding and maintenance scripts

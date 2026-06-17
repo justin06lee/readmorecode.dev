@@ -1,0 +1,1 @@
+CREATE INDEX `puzzle_attempts_user_attempted_idx` ON `puzzle_attempts` (`user_id`,`attempted_at`);

@@ -5,6 +5,14 @@ import { getUserWithPasswordByEmail } from "@/lib/db/users";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { normalizeEmail, validateEmail } from "@/lib/user-validation";
 
+// A well-formed (salt:hash) dummy hash used to perform a constant-time dummy
+// verification when no user matches the email, so the not-found path takes the
+// same time as the wrong-password path (mitigates email-enumeration timing oracle).
+// The plaintext for this hash is unknown/random, so it can never match a real password.
+const DUMMY_PASSWORD_HASH =
+  "00000000000000000000000000000000:" +
+  "0".repeat(128);
+
 export async function POST(request: Request) {
   const csrfError = requireSameOrigin(request);
   if (csrfError) {
@@ -38,6 +46,9 @@ export async function POST(request: Request) {
 
   const user = await getUserWithPasswordByEmail(email);
   if (!user) {
+    // Perform a dummy scrypt verification to equalize timing with the
+    // wrong-password path and prevent email-enumeration via response latency.
+    await verifyPassword(password, DUMMY_PASSWORD_HASH);
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 

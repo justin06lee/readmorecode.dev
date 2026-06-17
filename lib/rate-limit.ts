@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "crypto";
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { requestRateLimitsTable } from "@/lib/db/schema";
 
@@ -17,11 +17,16 @@ type RateLimitResult = {
 };
 
 function getClientFingerprint(request: Request, scope: string) {
+  // Derive the bucket from the client IP only. user-agent is fully
+  // attacker-controlled and would let a caller mint a fresh bucket per request,
+  // so it is intentionally excluded. This assumes the app sits behind a proxy
+  // (e.g. the hosting platform) that sets x-forwarded-for / x-real-ip; the
+  // leftmost x-forwarded-for entry is the originating client.
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
   const realIp = request.headers.get("x-real-ip")?.trim() ?? "";
-  const userAgent = request.headers.get("user-agent")?.trim() ?? "";
-  const raw = `${scope}:${forwardedFor}|${realIp}|${userAgent}`;
-  const identifierHash = createHash("sha256").update(raw || `${scope}:anonymous`).digest("hex");
+  const clientIp = forwardedFor || realIp;
+  const raw = clientIp ? `${scope}:${clientIp}` : `${scope}:anonymous`;
+  const identifierHash = createHash("sha256").update(raw).digest("hex");
   return {
     identifierHash,
     bucketKey: `${scope}:${identifierHash}`,
@@ -40,16 +45,15 @@ export async function checkRateLimit(
     .delete(requestRateLimitsTable)
     .where(and(eq(requestRateLimitsTable.scope, scope), lt(requestRateLimitsTable.resetAt, now)));
 
-  const rows = await db
-    .select()
-    .from(requestRateLimitsTable)
-    .where(eq(requestRateLimitsTable.bucketKey, bucketKey))
-    .limit(1);
+  const resetAt = now + config.windowMs;
 
-  const existing = rows[0];
-  if (!existing) {
-    const resetAt = now + config.windowMs;
-    await db.insert(requestRateLimitsTable).values({
+  // Atomic upsert: insert the bucket on first sight, otherwise increment the
+  // count in a single SQL statement. This closes the read-then-write window
+  // that let concurrent requests exceed the cap or throw on the UNIQUE
+  // constraint for a first-seen bucketKey.
+  const upserted = await db
+    .insert(requestRateLimitsTable)
+    .values({
       bucketKey,
       scope,
       identifierHash,
@@ -57,37 +61,24 @@ export async function checkRateLimit(
       resetAt,
       createdAt: now,
       updatedAt: now,
-    });
-    return {
-      allowed: true,
-      remaining: Math.max(0, config.maxRequests - 1),
-      resetAt,
-      retryAfterSeconds: Math.ceil(config.windowMs / 1000),
-    };
-  }
-
-  if (existing.count >= config.maxRequests) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetAt: existing.resetAt,
-      retryAfterSeconds: Math.max(1, Math.ceil((existing.resetAt - now) / 1000)),
-    };
-  }
-
-  const nextCount = existing.count + 1;
-  await db
-    .update(requestRateLimitsTable)
-    .set({
-      count: nextCount,
-      updatedAt: now,
     })
-    .where(eq(requestRateLimitsTable.id, existing.id));
+    .onConflictDoUpdate({
+      target: requestRateLimitsTable.bucketKey,
+      set: {
+        count: sql`${requestRateLimitsTable.count} + 1`,
+        updatedAt: now,
+      },
+    })
+    .returning();
+
+  const row = upserted[0]!;
+  const count = row.count;
+  const allowed = count <= config.maxRequests;
 
   return {
-    allowed: true,
-    remaining: Math.max(0, config.maxRequests - nextCount),
-    resetAt: existing.resetAt,
-    retryAfterSeconds: Math.max(1, Math.ceil((existing.resetAt - now) / 1000)),
+    allowed,
+    remaining: Math.max(0, config.maxRequests - count),
+    resetAt: row.resetAt,
+    retryAfterSeconds: Math.max(1, Math.ceil((row.resetAt - now) / 1000)),
   };
 }

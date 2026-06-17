@@ -1,7 +1,7 @@
 /**
  * CLI: Review every puzzle with the repair prompt; if REJECTED, update with corrected JSON.
  * Run with: bun run db:repair
- * Uses same 7 Groq API keys and 5 models; rotates model then key on 429.
+ * Uses same 8 Groq API keys and 5 models; rotates model then key on 429.
  */
 import { config } from "dotenv";
 import { join } from "path";
@@ -19,7 +19,7 @@ function sleep(ms: number): Promise<void> {
 
 function getApiKeys(): string[] {
   const keys: string[] = [];
-  for (let i = 1; i <= 7; i++) {
+  for (let i = 1; i <= 8; i++) {
     const key = process.env[i === 1 ? "GROQ_API_KEY" : `GROQ_API_KEY${i}`];
     if (key) keys.push(key);
   }

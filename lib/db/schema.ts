@@ -1,4 +1,4 @@
-import { int, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, int, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const puzzlesTable = sqliteTable("puzzles", {
   id: int().primaryKey({ autoIncrement: true }),
@@ -63,16 +63,20 @@ export const requestRateLimitsTable = sqliteTable("request_rate_limits", {
   updatedAt: int("updated_at").notNull(),
 });
 
-export const puzzleAttemptsTable = sqliteTable("puzzle_attempts", {
-  id: int().primaryKey({ autoIncrement: true }),
-  userId: int("user_id").notNull(),
-  puzzleId: text("puzzle_id").notNull(),
-  question: text("question").notNull(),
-  language: text("language"),
-  category: text("category"),
-  correct: int("correct").notNull(),
-  attemptedAt: int("attempted_at").notNull(),
-});
+export const puzzleAttemptsTable = sqliteTable(
+  "puzzle_attempts",
+  {
+    id: int().primaryKey({ autoIncrement: true }),
+    userId: int("user_id").notNull(),
+    puzzleId: text("puzzle_id").notNull(),
+    question: text("question").notNull(),
+    language: text("language"),
+    category: text("category"),
+    correct: int("correct").notNull(),
+    attemptedAt: int("attempted_at").notNull(),
+  },
+  (t) => [index("puzzle_attempts_user_attempted_idx").on(t.userId, t.attemptedAt)]
+);
 
 export const guestDailyUsageTable = sqliteTable("guest_daily_usage", {
   id: int().primaryKey({ autoIncrement: true }),

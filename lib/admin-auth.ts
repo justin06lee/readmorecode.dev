@@ -25,11 +25,10 @@ export function hashAdminSessionToken(token: string): string {
 }
 
 export function verifyAdminPassword(password: string, adminPassword: string): boolean {
-  const provided = Buffer.from(password, "utf8");
-  const expected = Buffer.from(adminPassword, "utf8");
-  if (provided.length !== expected.length) {
-    return false;
-  }
+  // Compare SHA-256 digests (always 32 bytes) so the constant-time compare does
+  // not branch on raw input length, avoiding a password-length timing leak.
+  const provided = createHash("sha256").update(password, "utf8").digest();
+  const expected = createHash("sha256").update(adminPassword, "utf8").digest();
   return timingSafeEqual(provided, expected);
 }
 

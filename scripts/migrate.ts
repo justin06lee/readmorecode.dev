@@ -48,8 +48,17 @@ function getAddColumnTarget(statement: string) {
   };
 }
 
+const IDENTIFIER_RE = /^[A-Za-z0-9_]+$/;
+
+function assertIdentifier(name: string): string {
+  if (!IDENTIFIER_RE.test(name)) {
+    throw new Error(`Unsafe SQL identifier: ${name}`);
+  }
+  return name;
+}
+
 async function getExistingColumns(tableName: string) {
-  const result = await client.execute(`PRAGMA table_info(${tableName})`);
+  const result = await client.execute(`PRAGMA table_info(${assertIdentifier(tableName)})`);
   return new Set(
     result.rows
       .map((row) => (row as TableInfoRow).name)
@@ -132,7 +141,7 @@ async function main() {
   const puzzleColumns = await getExistingColumns("puzzles");
   for (const col of ["category", "language"]) {
     if (!puzzleColumns.has(col)) {
-      await client.execute(`ALTER TABLE puzzles ADD COLUMN ${col} TEXT`);
+      await client.execute(`ALTER TABLE puzzles ADD COLUMN ${assertIdentifier(col)} TEXT`);
       console.log("  Added column:", col);
       puzzleColumns.add(col);
     } else {
@@ -213,6 +222,7 @@ async function main() {
   ]) {
     const [name] = col.split(" ");
     if (!userColumns.has(name!)) {
+      assertIdentifier(name!);
       await client.execute(`ALTER TABLE users ADD COLUMN ${col}`);
       console.log("  Added column:", name);
       userColumns.add(name!);

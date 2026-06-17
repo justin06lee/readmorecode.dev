@@ -1,7 +1,7 @@
 /**
  * CLI: Regenerate every puzzle's question/answer/explanation using the new generation prompt.
  * Run with: bun run db:regenerate
- * Uses same 7 Groq API keys and 5 models; rotates model then key on 429.
+ * Uses same 8 Groq API keys and 5 models; rotates model then key on 429.
  *
  * Optional env:
  * - START_FROM_PUZZLE_INDEX=15  — start at the 15th puzzle (1-based), skip earlier ones
@@ -24,7 +24,7 @@ function sleep(ms: number): Promise<void> {
 
 function getApiKeys(): string[] {
   const keys: string[] = [];
-  for (let i = 1; i <= 7; i++) {
+  for (let i = 1; i <= 8; i++) {
     const key = process.env[i === 1 ? "GROQ_API_KEY" : `GROQ_API_KEY${i}`];
     if (key) keys.push(key);
   }

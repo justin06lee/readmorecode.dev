@@ -21,11 +21,13 @@ function toAuthUser(row: UserRow): AuthUser {
     stripeSubscriptionId: row.stripeSubscriptionId ?? null,
     subscriptionStatus: row.subscriptionStatus ?? null,
     subscriptionCurrentPeriodEnd: row.subscriptionCurrentPeriodEnd ?? null,
-    isPaid: isPaidSubscriptionStatus(row.subscriptionStatus),
+    isPaid:
+      isPaidSubscriptionStatus(row.subscriptionStatus) &&
+      (row.subscriptionCurrentPeriodEnd == null || row.subscriptionCurrentPeriodEnd > Date.now()),
   };
 }
 
-function startOfDayUtc(timestamp: number): string {
+export function startOfDayUtc(timestamp: number): string {
   return new Date(timestamp).toISOString().slice(0, 10);
 }
 
@@ -129,11 +131,13 @@ export async function getUserByStripeCustomerId(customerId: string): Promise<Aut
 }
 
 export async function createSession(input: { userId: number; tokenHash: string; expiresAt: number }): Promise<void> {
+  const now = Date.now();
+  await db.delete(userSessionsTable).where(lt(userSessionsTable.expiresAt, now));
   await db.insert(userSessionsTable).values({
     userId: input.userId,
     tokenHash: input.tokenHash,
     expiresAt: input.expiresAt,
-    createdAt: Date.now(),
+    createdAt: now,
   });
 }
 
@@ -142,10 +146,12 @@ export async function deleteSessionByTokenHash(tokenHash: string): Promise<void>
 }
 
 export async function createAdminSession(input: { tokenHash: string; expiresAt: number }): Promise<void> {
+  const now = Date.now();
+  await db.delete(adminSessionsTable).where(lt(adminSessionsTable.expiresAt, now));
   await db.insert(adminSessionsTable).values({
     tokenHash: input.tokenHash,
     expiresAt: input.expiresAt,
-    createdAt: Date.now(),
+    createdAt: now,
   });
 }
 
@@ -259,45 +265,60 @@ export async function incrementGuestDailyUsage(guestKey: string, dayKey: string)
   const guestDayKey = `${dayKey}:${guestKey}`;
   const now = Date.now();
   const rows = await db
-    .select()
-    .from(guestDailyUsageTable)
-    .where(eq(guestDailyUsageTable.guestDayKey, guestDayKey))
-    .limit(1);
-  const existing = rows[0];
-  if (!existing) {
-    await db.insert(guestDailyUsageTable).values({
+    .insert(guestDailyUsageTable)
+    .values({
       guestDayKey,
       guestKey,
       dayKey,
       count: 1,
       createdAt: now,
       updatedAt: now,
-    });
-    return 1;
-  }
-
-  const nextCount = existing.count + 1;
-  await db
-    .update(guestDailyUsageTable)
-    .set({
-      count: nextCount,
-      updatedAt: now,
     })
-    .where(eq(guestDailyUsageTable.id, existing.id));
-  return nextCount;
+    .onConflictDoUpdate({
+      target: guestDailyUsageTable.guestDayKey,
+      set: {
+        count: sql`${guestDailyUsageTable.count} + 1`,
+        updatedAt: now,
+      },
+    })
+    .returning({ count: guestDailyUsageTable.count });
+  return rows[0]?.count ?? 1;
 }
 
 export async function getProfileDataForUser(userId: number): Promise<ProfileData | null> {
   const user = await getUserById(userId);
   if (!user) return null;
 
-  const attemptRows = await db
-    .select()
-    .from(puzzleAttemptsTable)
-    .where(eq(puzzleAttemptsTable.userId, userId))
-    .orderBy(desc(puzzleAttemptsTable.attemptedAt));
+  const HEATMAP_DAYS = 182;
+  const windowStart =
+    Date.parse(`${startOfDayUtc(Date.now())}T00:00:00.000Z`) - (HEATMAP_DAYS - 1) * 86_400_000;
 
-  const history: PuzzleAttempt[] = attemptRows.slice(0, 30).map((row) => ({
+  const [totals, windowRows, historyRows] = await Promise.all([
+    db
+      .select({
+        total: sql<number>`count(*)`,
+        correct: sql<number>`sum(case when ${puzzleAttemptsTable.correct} = 1 then 1 else 0 end)`,
+      })
+      .from(puzzleAttemptsTable)
+      .where(eq(puzzleAttemptsTable.userId, userId)),
+    db
+      .select({ attemptedAt: puzzleAttemptsTable.attemptedAt })
+      .from(puzzleAttemptsTable)
+      .where(
+        and(
+          eq(puzzleAttemptsTable.userId, userId),
+          gte(puzzleAttemptsTable.attemptedAt, windowStart)
+        )
+      ),
+    db
+      .select()
+      .from(puzzleAttemptsTable)
+      .where(eq(puzzleAttemptsTable.userId, userId))
+      .orderBy(desc(puzzleAttemptsTable.attemptedAt))
+      .limit(30),
+  ]);
+
+  const history: PuzzleAttempt[] = historyRows.map((row) => ({
     id: row.id,
     puzzleId: row.puzzleId,
     question: row.question,
@@ -307,11 +328,10 @@ export async function getProfileDataForUser(userId: number): Promise<ProfileData
     attemptedAt: row.attemptedAt,
   }));
 
-  const correctAttempts = attemptRows.filter((row) => row.correct === 1).length;
-  const streaks = calculateStreaks(attemptRows);
+  const streaks = calculateStreaks(windowRows);
   const stats: ProfileStats = {
-    totalAttempts: attemptRows.length,
-    correctAttempts,
+    totalAttempts: Number(totals[0]?.total ?? 0),
+    correctAttempts: Number(totals[0]?.correct ?? 0),
     currentStreak: streaks.currentStreak,
     longestStreak: streaks.longestStreak,
   };
@@ -319,7 +339,7 @@ export async function getProfileDataForUser(userId: number): Promise<ProfileData
   return {
     user,
     stats,
-    heatmap: buildHeatmap(attemptRows),
+    heatmap: buildHeatmap(windowRows, HEATMAP_DAYS),
     history,
   };
 }
